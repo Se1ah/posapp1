@@ -1,0 +1,88 @@
+{% load humanize %}
+<div class="container-fluid">
+    <form action="" id="checkout-form">
+        <div class="form-group mb-3">
+            <label for="payable_amount" class="control-label">Payable Amount</label>
+            <input type="text" id="payable_amount" class="form-control form-control-lg rounded-0 text-end" value="{{ grand_total|intcomma }}" required disabled>
+        </div>
+        <div class="form-group mb-3">
+            <label for="tendered_amount" class="control-label">NFC ID</label>
+            <input type="text" step="any" id="tendered_amount" class="form-control form-control-lg rounded-0 text-end" value="0" readonly>
+        </div>
+        <div class="form-group mb-3">
+            <label for="payment_change" class="control-label">Change</label>
+            <input type="text" id="payment_change" class="form-control form-control-lg rounded-0 text-end" value="{{ 0|intcomma }}" required disabled>
+        </div>
+    </form>
+</div>
+<script>
+    $(function() {
+        $('#tendered_amount').on('input keypress keyup keydown', function() {
+            var tendered_amount = $('#tendered_amount').val()
+            var payable = $('#payable_amount').val()
+            tendered_amount = tendered_amount.replace(/,/gi, '')
+            payable = payable.replace(/,/gi, '')
+            var change = 0
+            tendered_amount = tendered_amount > 0 ? tendered_amount : 0;
+            $('[name="tendered_amount"]').val(tendered_amount)
+            change = parseFloat(tendered_amount) - parseFloat(payable)
+            console.log(tendered_amount, payable)
+            $('#payment_change').val(parseFloat(change).toLocaleString('en-US'))
+            $('[name="amount_change"]').val(change)
+
+        })
+        $('#checkout-form').submit(function(e) {
+            e.preventDefault();
+            if ($('[name="amount_change"]').val() < 0) {
+                alert("Tendered Amount is lower that Payable Amount")
+                return false;
+            }
+            $('#pos-form').submit()
+        })
+    })
+</script>
+
+<script>
+    let url = `ws://localhost:8001/nfc/`
+    var tag = '';
+    var count = 0;
+    const socket = new WebSocket(url);  // Replace with your WebSocket URL
+
+    socket.onmessage = function(event) {
+        console.log(event);
+        count++;
+        const tagData = JSON.parse(event.data).tag;
+        tag = tagData;
+        console.log(tag);
+        document.getElementById('tendered_amount').value = tag.split(' ')[1].split('=')[1];
+        if(count >= 10){
+             clearInterval(intervalId);
+            //106A sdd_res=EE821D04 sel_res=08 sens_res=0400
+        }
+        // Replace with your desired display logic
+    };
+
+    intervalId = setInterval(askForNfc,2000)
+
+    window.addEventListener('beforeunload', function (e) {
+        console.log("tag");
+        clearInterval(intervalId)
+    });
+    $('div#popup_content').on('dialogclose', function(event) {
+       console.log("tag");
+        clearInterval(intervalId)
+     //alert('closed');
+    });
+    $("Checkout").on("hidden.bs.modal", function () {
+        console.log("tag");
+         clearInterval(intervalId)
+    // put your default event here
+    });
+
+    function askForNfc(){
+        socket.send("nfc")
+    }
+
+
+
+</script>
